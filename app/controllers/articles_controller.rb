@@ -1,22 +1,21 @@
 class ArticlesController < ApplicationController
-  
-  http_basic_authenticate_with name: "dhh", password: "secret", except: [:index, :show]
-  
+  before_action :authenticate_user!, only: [:edit, :update, :destroy]
+
   def index
     @articles = Article.all
   end
 
-  def show
+  def show 
     @article = Article.find(params[:id])
   end
 
-  def new
+  def new 
     @article = Article.new
   end
 
   def create
-    @article = Article.new(article_params)
-
+    @article = current_user.articles.new(article_params)
+    authorize! :create, @article
     if @article.save
       redirect_to @article
     else
@@ -30,6 +29,7 @@ class ArticlesController < ApplicationController
 
   def update
     @article = Article.find(params[:id])
+    authorize! :update, @article
 
     if @article.update(article_params)
       redirect_to @article
@@ -45,10 +45,18 @@ class ArticlesController < ApplicationController
     redirect_to root_path, status: :see_other
   end
 
- 
-  private
-    def article_params
-      params.require(:article).permit(:title, :body, :status)
-    end
+  def report
+    @article = Article.find(params[:id])
+    @article.increment!(:reports_count)
 
+    if @article.reports_count >= 3
+      @article.update(status: "archived")
+    end
+    redirect_to root_path, notice: "Article reported successfully."
+  end
+
+  private
+  def article_params
+    params.require(:article).permit(:title, :body, :status, :image)
+  end
 end
